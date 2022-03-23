@@ -27,7 +27,7 @@ for key,val in cmdline_args.__dict__.items():
     if val is not None and key not in ['command', 'conf_file']:
         opt[key] = val
 
-model = SDNetTrainer(opt)    
-    
+model = SDNetTrainer(opt)
+
 print('Select command: ' + command)
 model.train()

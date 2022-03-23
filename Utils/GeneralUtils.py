@@ -10,12 +10,12 @@ import torch.nn.functional as F
 import unicodedata
 import sys
 from torch.autograd import Variable
-nlp = spacy.load('en', parser = False)
+nlp = spacy.load('en_core_web_sm')
 
 # normalize sentence
 def normalize_text(text):
     return unicodedata.normalize('NFD', text)
- 
+
 def space_extend( matchobj):
     return ' ' + matchobj.group(0) + ' '
 
@@ -24,7 +24,7 @@ def pre_proc(text):
     text = re.sub(u'-|\u2010|\u2011|\u2012|\u2013|\u2014|\u2015|%|\[|\]|:|\(|\)|/|\t', space_extend, text)
     text = text.strip(' \n')
     text = re.sub('\s+', ' ', text)
-    return text 
+    return text
 
 # get a set of vocabulary
 def load_glove_vocab(file, wv_dim, to_lower = True):
@@ -45,7 +45,7 @@ def load_glove_vocab(file, wv_dim, to_lower = True):
             token = normalize_text(''.join(elems[0:-wv_dim]))
             if to_lower:
                 token = token.lower()
-            glove_vocab.add(token) 
+            glove_vocab.add(token)
 
     print('\n')
     print('%d words loaded from Glove\n' % len(glove_vocab))
@@ -69,7 +69,7 @@ def removeInvalidChar(sentence):
 def makeVariable(x, use_cuda):
     if use_cuda:
         x = x.pin_memory()
-        return Variable(x.cuda(async = True), requires_grad = False)
+        return Variable(x.cuda(), requires_grad = False)
     else:
         return Variable(x, requires_grad = False)
 
@@ -92,6 +92,6 @@ def spacyTokenize(sentence, vocab_ent=None, vocab_tag=None):
 
     tag = None
     if vocab_tag is not None:
-        tag = [token2id(token.tag_, vocab_tag) + 1 for token in raw_tokens if not token.is_punct | token.is_space]    
+        tag = [token2id(token.tag_, vocab_tag) + 1 for token in raw_tokens if not token.is_punct | token.is_space]
 
     return tokens, ent, tag

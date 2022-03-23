@@ -18,7 +18,7 @@ from Models.Layers import MaxPooling, set_dropout_prob
 from Models.SDNet import SDNet
 from Models.BaseTrainer import BaseTrainer
 from Utils.CoQAUtils import BatchGen, AverageMeter, gen_upper_triangle, score
- 
+
 class SDNetTrainer(BaseTrainer):
     def __init__(self, opt):
         super(SDNetTrainer, self).__init__(opt)
@@ -48,7 +48,7 @@ class SDNetTrainer(BaseTrainer):
         for j, test_batch in enumerate(test_batches):
             cnt += 1
             if cnt % 50 == 0:
-                print(cnt, '/', len(test_batches))  
+                print(cnt, '/', len(test_batches))
             phrase, phrase_score, pred_json = self.predict(test_batch)
             predictions.extend(phrase)
             confidence.extend(phrase_score)
@@ -56,7 +56,7 @@ class SDNetTrainer(BaseTrainer):
 
         return predictions, confidence, final_json
 
-    def train(self): 
+    def train(self):
         self.isTrain = True
         self.getSaveFolder()
         self.saveConf()
@@ -64,10 +64,10 @@ class SDNetTrainer(BaseTrainer):
         self.log('-----------------------------------------------')
         self.log("Initializing model...")
         self.setup_model(vocab_embedding)
-        
+
         if 'RESUME' in self.opt:
             model_path = os.path.join(self.opt['datadir'], self.opt['MODEL_PATH'])
-            self.load_model(model_path)            
+            self.load_model(model_path)
 
         print('Loading train json...')
         with open(os.path.join(self.opt['FEATURE_FOLDER'], self.data_prefix + 'train-preprocessed.json'), 'r') as f:
@@ -109,7 +109,7 @@ class SDNetTrainer(BaseTrainer):
                         pred_json_file = os.path.join(self.saveFolder, 'prediction.json')
                         with open(pred_json_file, 'w') as output_file:
                             json.dump(final_json, output_file)
-                        score_per_instance = []    
+                        score_per_instance = []
                         for instance, s in zip(final_json, all_f1s):
                             score_per_instance.append({
                                 'id': instance['id'],
@@ -118,11 +118,11 @@ class SDNetTrainer(BaseTrainer):
                             })
                         score_per_instance_json_file = os.path.join(self.saveFolder, 'score_per_instance.json')
                         with open(score_per_instance_json_file, 'w') as output_file:
-                            json.dump(score_per_instance, output_file)    
+                            json.dump(score_per_instance, output_file)
 
                     self.log("Epoch {0} - dev: F1: {1:.3f} (best F1: {2:.3f})".format(epoch, f1, best_f1_score))
                     self.log("Results breakdown\n{0}".format(result))
-                
+
                 self.update(batch)
                 if i % 100 == 0:
                     self.log('updates[{0:6}] train loss[{1:.5f}] remaining[{2}]'.format(
@@ -147,7 +147,7 @@ class SDNetTrainer(BaseTrainer):
 
         self.updates = 0
         self.epoch_start = 0
-        self.loss_func = F.cross_entropy 
+        self.loss_func = F.cross_entropy
 
     def update(self, batch):
         # Train mode
@@ -160,7 +160,7 @@ class SDNetTrainer(BaseTrainer):
         # Run forward
         # score_s, score_e: batch x context_word_num
         # score_yes, score_no, score_no_answer: batch x 1
-        score_s, score_e, score_yes, score_no, score_no_answer = self.network(x, x_mask, x_char, x_char_mask, x_features, x_pos, x_ent, x_bert, x_bert_mask, x_bert_offsets, 
+        score_s, score_e, score_yes, score_no, score_no_answer = self.network(x, x_mask, x_char, x_char_mask, x_features, x_pos, x_ent, x_bert, x_bert_mask, x_bert_offsets,
             query, query_mask, query_char, query_char_mask, query_bert, query_bert_mask, query_bert_offsets, len(context_words))
         max_len = self.opt['max_len'] or score_s.size(1)
         batch_size = score_s.shape[0]
@@ -179,11 +179,13 @@ class SDNetTrainer(BaseTrainer):
             if ground_truth[i][0] != -1 and ground_truth[i][1] != -1: # normal span
                 targets.append(ground_truth[i][0] * context_len + ground_truth[i][1])
 
-        targets = torch.LongTensor(np.array(targets))
+        # TypeError: can't convert np.ndarray of type numpy.object_. The only supported types are: float64, float32, float16, complex64, complex128, int64, int32, int16, int8, uint8, and bool.
+        # targets = torch.FloatTensor(np.array(targets))
+        targets = torch.LongTensor(targets)
         if self.use_cuda:
             targets = targets.cuda()
         loss = self.loss_func(scores, targets)
-        self.train_loss.update(loss.data[0], 1)
+        self.train_loss.update(loss.item(), 1)
         self.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm(self.network.parameters(), self.opt['grad_clipping'])
@@ -200,9 +202,9 @@ class SDNetTrainer(BaseTrainer):
         x, x_mask, x_char, x_char_mask, x_features, x_pos, x_ent, x_bert, x_bert_mask, x_bert_offsets, query, query_mask, \
         query_char, query_char_mask, query_bert, query_bert_mask, query_bert_offsets, ground_truth, context_str, context_words, \
         context_word_offsets, answers, context_id, turn_ids = batch
-        
+
         context_len = len(context_words)
-        score_s, score_e, score_yes, score_no, score_no_answer = self.network(x, x_mask, x_char, x_char_mask, x_features, x_pos, x_ent, x_bert, x_bert_mask, x_bert_offsets, 
+        score_s, score_e, score_yes, score_no, score_no_answer = self.network(x, x_mask, x_char, x_char_mask, x_features, x_pos, x_ent, x_bert, x_bert_mask, x_bert_offsets,
             query, query_mask, query_char, query_char_mask, query_bert, query_bert_mask, query_bert_offsets, len(context_words))
         batch_size = score_s.shape[0]
         max_len = self.opt['max_len'] or score_s.size(1)
@@ -214,7 +216,7 @@ class SDNetTrainer(BaseTrainer):
         # Get argmax text spans
         predictions = []
         confidence = []
-        
+
         pred_json = []
         for i in range(batch_size):
             _, ids = torch.sort(prob[i, :], descending=True)
@@ -223,12 +225,12 @@ class SDNetTrainer(BaseTrainer):
 
             confidence.append(float(prob[i, best_id]))
             if best_id < context_len * context_len:
-                st = best_id / context_len
-                ed = best_id % context_len
+                st = int(best_id / context_len)
+                ed = int(best_id % context_len)
                 st = context_word_offsets[st][0]
                 ed = context_word_offsets[ed][1]
                 predictions.append(context_str[st:ed])
-            
+
             if best_id == context_len * context_len:
                 predictions.append('no')
 
@@ -259,7 +261,7 @@ class SDNetTrainer(BaseTrainer):
                 state_dict['network'][k] = v
         self.network.load_state_dict(state_dict['network'])
 
-        print('Loading finished', model_path)        
+        print('Loading finished', model_path)
 
     def save(self, filename, epoch, prev_filename):
         params = {

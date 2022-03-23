@@ -47,7 +47,7 @@ def build_embedding(embed_file, targ_vocab, wv_dim):
 def token2id_sent(sent, w2id, unk_id=None, to_lower=False):
     if to_lower:
         sent = sent.lower()
-    w2id_len = len(w2id)    
+    w2id_len = len(w2id)
     ids = [w2id[w] if w in w2id else unk_id for w in sent]
     return ids
 
@@ -74,7 +74,7 @@ def feature_gen(context, question):
     match_lower = [w.text.lower() in question_lower for w in context]
     match_lemma = [(w.lemma_ if w.lemma_ != '-PRON-' else w.text.lower()) in question_lemma for w in context]
     C_features = list(zip(term_freq, match_origin, match_lower, match_lemma))
-    return C_features    
+    return C_features
 
 '''
  Get upper triangle matrix from start and end scores (batch)
@@ -85,7 +85,7 @@ def feature_gen(context, question):
   max_len: maximum span of answer
   use_cuda: whether GPU is used
  Output:
-  expand_score: batch x (context_len * context_len) 
+  expand_score: batch x (context_len * context_len)
 '''
 def gen_upper_triangle(score_s, score_e, max_len, use_cuda):
     batch_size = score_s.shape[0]
@@ -99,14 +99,14 @@ def gen_upper_triangle(score_s, score_e, max_len, use_cuda):
     score_mask = torch.ger(score_mask, score_mask).triu().tril(max_len - 1)
     empty_mask = score_mask.eq(0).unsqueeze(0).expand_as(expand_score)
     expand_score.data.masked_fill_(empty_mask.data, -float('inf'))
-    return expand_score.contiguous().view(batch_size, -1) # batch x (context_len * context_len)    
+    return expand_score.contiguous().view(batch_size, -1) # batch x (context_len * context_len)
 
 class BatchGen:
     def __init__(self, opt, data, use_cuda, vocab, char_vocab, evaluation=False):
         # file_name = os.path.join(self.spacyDir, 'coqa-' + dataset_label + '-preprocessed.json')
 
         self.data = data
-        self.use_cuda = use_cuda 
+        self.use_cuda = use_cuda
         self.vocab = vocab
         self.char_vocab = char_vocab
         self.evaluation = evaluation
@@ -148,7 +148,7 @@ class BatchGen:
         print('*****************')
 
         c2id = {c: i for i, c in enumerate(char_vocab)}
-        
+
         # random shuffle for training
         if not evaluation:
             indices = list(range(len(self.data)))
@@ -168,7 +168,7 @@ class BatchGen:
             now = self.bert_tokenizer.tokenize(word)
             x_bert_offsets.append([len(bpe), len(bpe) + len(now)])
             bpe.extend(now)
-        
+
         bpe.append('[SEP]')
 
         x_bert = self.bert_tokenizer.convert_tokens_to_ids(bpe)
@@ -181,7 +181,7 @@ class BatchGen:
             if not self.evaluation:
                 # remove super long answers for training
                 datum['qas'] = [qa for qa in datum['qas'] if len(qa['annotated_answer']['word']) == 1 or qa['answer_span'][1] - qa['answer_span'][0] < MAX_ANS_SPAN]
-            
+
             if len(datum['qas']) == 0:
                 continue
 
@@ -200,8 +200,8 @@ class BatchGen:
                 x_bert_offsets = torch.tensor([x_bert_offsets], dtype = torch.long)
 
             x_pos = torch.LongTensor(1, x_len).fill_(0)
-            x_ent = torch.LongTensor(1, x_len).fill_(0)            
-            
+            x_ent = torch.LongTensor(1, x_len).fill_(0)
+
             if self.answer_span_in_context:
                 x_features = torch.Tensor(batch_size, x_len, 5).fill_(0)
             else:
@@ -241,13 +241,13 @@ class BatchGen:
                     if j < 0:
                         continue;
                     if not self.evaluation and datum['qas'][j]['answer_span'][0] == -1: # questions with "unknown" answers are filtered out
-                        continue    
+                        continue
 
                     q = [2] + datum['qas'][j]['annotated_question']['wordid']
                     q_char = [[0]] + datum['qas'][j]['annotated_question']['charid']
                     if j >= i - self.prev_ques and p + len(q) <= self.ques_max_len:
                         ques_words.extend(['<Q>'] + datum['qas'][j]['annotated_question']['word'])
-                        # <Q>: 2, <A>: 3                    
+                        # <Q>: 2, <A>: 3
                         query[i, p:(p+len(q))] = torch.LongTensor(q)
                         if self.use_char_cnn:
                             for k in range(len(q_char)):
@@ -260,7 +260,7 @@ class BatchGen:
                     a_char = [[0]] + datum['qas'][j]['annotated_answer']['charid']
                     if j < i and j >= i - self.prev_ans and p + len(a) <= self.ques_max_len:
                         ques_words.extend(['<A>'] + datum['qas'][j]['annotated_answer']['word'])
-                        query[i, p:(p+len(a))] = torch.LongTensor(a) 
+                        query[i, p:(p+len(a))] = torch.LongTensor(a)
                         if self.use_char_cnn:
                             for k in range(len(a_char)):
                                 t = min(self.char_max_len, len(a_char[k]))
@@ -299,7 +299,7 @@ class BatchGen:
 
                 if ground_truth[i, 0] >= 0 and ground_truth[i, 1] >= 0:
                     answer_str = answer
-                
+
                 all_viable_answers = [answer_str]
                 if 'additional_answers' in datum['qas'][i]:
                     all_viable_answers.extend(datum['qas'][i]['additional_answers'])
@@ -314,20 +314,20 @@ class BatchGen:
                     query_bert[i, :len(q_bert_list[i])] = torch.LongTensor(q_bert_list[i])
                     query_bert_mask[i, :len(q_bert_list[i])] = 1
                 if self.use_cuda:
-                    x_bert = Variable(x_bert.cuda(async=True))
-                    x_bert_mask = Variable(x_bert_mask.cuda(async=True))
-                    query_bert = Variable(query_bert.cuda(async=True))
-                    query_bert_mask = Variable(query_bert_mask.cuda(async=True))
+                    x_bert = Variable(x_bert.cuda())
+                    x_bert_mask = Variable(x_bert_mask.cuda())
+                    query_bert = Variable(query_bert.cuda())
+                    query_bert_mask = Variable(query_bert_mask.cuda())
                 else:
                     x_bert = Variable(x_bert)
                     x_bert_mask = Variable(x_bert_mask)
                     query_bert = Variable(query_bert)
-                    query_bert_mask = Variable(query_bert_mask)   
+                    query_bert_mask = Variable(query_bert_mask)
             else:
                 x_bert = None
                 x_bert_mask = None
                 x_bert_offsets = None
-                query_bert = None        
+                query_bert = None
                 query_bert_mask = None
                 query_bert_offsets = None
 
@@ -335,10 +335,10 @@ class BatchGen:
                 x_char_mask = 1 - torch.eq(x_char, 0)
                 query_char_mask = 1 - torch.eq(query_char, 0)
                 if self.use_cuda:
-                    x_char = Variable(x_char.cuda(async=True))
-                    x_char_mask = Variable(x_char_mask.cuda(async=True))
-                    query_char = Variable(query_char.cuda(async=True))
-                    query_char_mask = Variable(query_char_mask.cuda(async=True))
+                    x_char = Variable(x_char.cuda())
+                    x_char_mask = Variable(x_char_mask.cuda())
+                    query_char = Variable(query_char.cuda())
+                    query_char_mask = Variable(query_char_mask.cuda())
                 else:
                     x_char = Variable(x_char)
                     x_char_mask = Variable(x_char_mask)
@@ -347,23 +347,23 @@ class BatchGen:
             else:
                 x_char = None
                 x_char_mask = None
-                query_char = None                               
-                query_char_mask = None                               
+                query_char = None
+                query_char_mask = None
 
-            x_mask = 1 - torch.eq(x, 0)
-            query_mask = 1 - torch.eq(query, 0)
+            x_mask = 1 - torch.eq(x, 0).int()
+            query_mask = 1 - torch.eq(query, 0).int()
             if self.use_cuda:
-                x = Variable(x.cuda(async=True))
-                x_mask = Variable(x_mask.cuda(async=True))                
-                x_features = Variable(x_features.cuda(async=True))
-                x_pos = Variable(x_pos.cuda(async=True))
-                x_ent = Variable(x_ent.cuda(async=True))
-                query = Variable(query.cuda(async=True))
-                query_mask = Variable(query_mask.cuda(async=True))                
-                ground_truth = Variable(ground_truth.cuda(async=True))
+                x = Variable(x.cuda())
+                x_mask = Variable(x_mask.cuda())
+                x_features = Variable(x_features.cuda())
+                x_pos = Variable(x_pos.cuda())
+                x_ent = Variable(x_ent.cuda())
+                query = Variable(query.cuda())
+                query_mask = Variable(query_mask.cuda())
+                ground_truth = Variable(ground_truth.cuda())
             else:
                 x = Variable(x)
-                x_mask = Variable(x_mask)                
+                x_mask = Variable(x_mask)
                 x_features = Variable(x_features)
                 x_pos = Variable(x_pos)
                 x_ent = Variable(x_ent)
@@ -408,7 +408,7 @@ def _f1_score(pred, answers):
 
     if len(answers) == 0:
         return 1. if len(pred) == 0 else 0.
-    
+
     g_tokens = _normalize_answer(pred).split()
     ans_tokens = [_normalize_answer(answer).split() for answer in answers]
     scores = [_score(g_tokens, a) for a in ans_tokens]
@@ -514,4 +514,4 @@ class AverageMeter(object):
         self.val = val
         self.sum += val * n
         self.count += n
-        self.avg = self.sum / self.count    
+        self.avg = self.sum / self.count
